@@ -1,19 +1,38 @@
 :root {
-  --bg: #1c1d1f;
-  --panel: #2a2b30;
-  --panel-2: #ffffff;        /* sidebar nền sáng kiểu Udemy */
-  --panel-3: #f7f8fa;
-  --text: #1c1d1f;           /* chữ tối trên sidebar sáng */
-  --text-dark: #f1f2f4;      /* chữ sáng trên nền tối (video/bar) */
-  --muted: #6a6f73;
+  /* Accent dùng chung cho cả 2 theme */
   --accent: #a435f0;
   --accent-2: #c77dff;
   --good: #16a34a;
-  --border: #e4e6eb;
-  --border-dark: #34353b;
   --radius: 8px;
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
   --sidebar-w: 360px;
+
+  /* ----- Theme SÁNG (mặc định) ----- */
+  --bg: #eceef1;
+  --surface: #ffffff;
+  --surface-2: #f3f4f6;
+  --surface-hover: #eceef1;
+  --active-bg: #e9defb;
+  --text: #1c1d1f;
+  --muted: #6a6f73;
+  --border: #e1e3e8;
+  --input-bg: #ffffff;
+  --input-border: #b6b9be;
+  --check-border: #8a8d91;
+}
+
+:root[data-theme='dark'] {
+  --bg: #131416;
+  --surface: #1c1d1f;
+  --surface-2: #2a2b30;
+  --surface-hover: #34353b;
+  --active-bg: #3a2a52;
+  --text: #e8e9eb;
+  --muted: #a3a5ab;
+  --border: #34353b;
+  --input-bg: #2a2b30;
+  --input-border: #4a4b52;
+  --check-border: #6a6c72;
 }
 
 * {
@@ -42,13 +61,15 @@ button {
 .landing {
   height: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 18px;
   padding: 24px;
-  color: var(--text-dark);
+  color: #f1f2f4;
   background:
-    radial-gradient(1200px 600px at 50% -10%, rgba(164, 53, 240, 0.18), transparent 60%),
-    var(--bg);
+    radial-gradient(1200px 600px at 50% -10%, rgba(164, 53, 240, 0.2), transparent 60%),
+    #18191b;
 }
 .landing-card {
   display: flex;
@@ -59,7 +80,7 @@ button {
   max-width: 520px;
   padding: 44px 40px;
   background: linear-gradient(180deg, #2a2b30, #202125);
-  border: 1px solid var(--border-dark);
+  border: 1px solid #34353b;
   border-radius: 18px;
   box-shadow: var(--shadow);
 }
@@ -107,7 +128,47 @@ button {
   transform: translateY(-1px);
 }
 
-/* ---------- App layout (video trái, sidebar phải kiểu Udemy) ---------- */
+/* ---------- Toggle theme ---------- */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 99px;
+  padding: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.theme-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 99px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.theme-toggle button.on {
+  background: var(--accent);
+  color: #fff;
+}
+.theme-toggle.on-dark {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.theme-toggle.on-dark button {
+  color: #c9cbd1;
+}
+.theme-toggle.on-dark button.on {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ---------- App layout (video trái, sidebar phải) ---------- */
 .app {
   display: flex;
   height: 100%;
@@ -124,7 +185,7 @@ button {
 .sidebar {
   width: var(--sidebar-w);
   flex-shrink: 0;
-  background: var(--panel-2);
+  background: var(--surface);
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -148,13 +209,18 @@ button {
   font-size: 17px;
   font-weight: 700;
 }
+.side-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 .course-select,
 .search {
   width: 100%;
-  background: #fff;
+  background: var(--input-bg);
   color: var(--text);
-  border: 1px solid #b6b9be;
+  border: 1px solid var(--input-border);
   border-radius: var(--radius);
   padding: 9px 11px;
   font-size: 14px;
@@ -202,7 +268,7 @@ button {
 .prog-bar {
   height: 6px;
   border-radius: 99px;
-  background: #e4e6eb;
+  background: var(--surface-2);
   overflow: hidden;
 }
 .prog-fill {
@@ -235,9 +301,10 @@ button {
   width: 10px;
 }
 .tree::-webkit-scrollbar-thumb {
-  background: #c4c7cc;
+  background: var(--input-border);
   border-radius: 99px;
-  border: 2px solid #fff;
+  border: 2px solid var(--surface);
+  background-clip: padding-box;
 }
 
 /* ---------- Section (chương) gập được ---------- */
@@ -251,13 +318,13 @@ button {
   justify-content: space-between;
   gap: 8px;
   padding: 13px 16px;
-  background: var(--panel-3);
+  background: var(--surface-2);
   border: none;
   cursor: pointer;
   text-align: left;
 }
 .chapter-title:hover {
-  background: #eef0f3;
+  background: var(--surface-hover);
 }
 .ch-info {
   min-width: 0;
@@ -291,14 +358,14 @@ button {
   cursor: pointer;
   font-size: 14px;
   border-left: 3px solid transparent;
-  background: #fff;
+  background: var(--surface);
   transition: background 0.1s ease;
 }
 .lecture:hover {
-  background: #f3f4f6;
+  background: var(--surface-2);
 }
 .lecture.active {
-  background: #e6ddf7;
+  background: var(--active-bg);
   border-left-color: var(--accent);
 }
 
@@ -308,8 +375,8 @@ button {
   width: 18px;
   height: 18px;
   border-radius: 4px;
-  border: 1.5px solid #8a8d91;
-  background: #fff;
+  border: 1.5px solid var(--check-border);
+  background: transparent;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -347,7 +414,7 @@ button {
 .cc {
   font-size: 9px;
   font-weight: 700;
-  border: 1px solid #b6b9be;
+  border: 1px solid var(--input-border);
   color: var(--muted);
   border-radius: 3px;
   padding: 1px 4px;
@@ -355,7 +422,7 @@ button {
   margin-left: 4px;
 }
 
-/* ---------- Khu vực video ---------- */
+/* ---------- Khu vực video (luôn nền tối) ---------- */
 .video-wrap {
   position: relative;
   flex: 1;
@@ -404,7 +471,7 @@ button {
   background: var(--accent);
 }
 
-/* ---------- Phụ đề overlay (hiện cả khi toàn màn hình) ---------- */
+/* ---------- Phụ đề overlay ---------- */
 .subs {
   position: absolute;
   text-align: center;
@@ -437,7 +504,7 @@ button {
   font-size: 0.82em;
 }
 
-/* ---------- Transcript panel ---------- */
+/* ---------- Transcript panel (luôn tối, overlay trên video) ---------- */
 .transcript {
   position: absolute;
   top: 0;
@@ -520,7 +587,7 @@ button {
   color: #cfd1d6;
 }
 
-/* ---------- Thanh điều khiển tự dựng ---------- */
+/* ---------- Thanh điều khiển (luôn tối) ---------- */
 .controls {
   position: absolute;
   left: 0;
@@ -532,7 +599,7 @@ button {
   gap: 4px;
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.55) 35%, rgba(0, 0, 0, 0.88));
   z-index: 8;
-  color: var(--text-dark);
+  color: #f1f2f4;
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
 .hide-ctrl .controls {
@@ -603,7 +670,7 @@ button {
   color: var(--muted);
 }
 .ic-btn.sm.dark:hover {
-  background: #eceef1;
+  background: var(--surface-hover);
   color: var(--text);
 }
 
@@ -667,7 +734,7 @@ button {
   outline: none;
 }
 .ctrl-sel select option {
-  background: var(--panel);
+  background: #2a2b30;
   color: #f1f2f4;
 }
 
@@ -687,15 +754,15 @@ button {
   text-align: center;
 }
 
-/* ---------- Bottom bar ---------- */
+/* ---------- Bottom bar (theo theme) ---------- */
 .bar {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  background: var(--panel);
-  border-top: 1px solid var(--border-dark);
-  color: var(--text-dark);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  color: var(--text);
 }
 .now {
   font-size: 15px;
@@ -704,7 +771,7 @@ button {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 40vw;
+  max-width: 36vw;
 }
 .bar .spacer {
   flex: 1;
@@ -714,9 +781,9 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: var(--panel);
-  color: var(--text-dark);
-  border: 1px solid var(--border-dark);
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 14px;
   font-size: 14px;
@@ -726,10 +793,10 @@ button {
 }
 .btn-sm:hover:not(:disabled) {
   border-color: var(--accent);
-  background: #34353b;
+  background: var(--surface-hover);
 }
 .btn-sm.icon.on {
-  color: var(--accent-2);
+  color: var(--accent);
   border-color: var(--accent);
 }
 .btn-sm.primary {
@@ -740,6 +807,7 @@ button {
 }
 .btn-sm.primary:hover:not(:disabled) {
   filter: brightness(1.08);
+  background: linear-gradient(180deg, var(--accent), #8e2bd1);
 }
 .btn-sm:disabled {
   opacity: 0.4;

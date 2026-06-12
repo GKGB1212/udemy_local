@@ -22,13 +22,37 @@ import {
   FolderInput,
   CirclePlay,
   X,
+  Sun,
+  Moon,
 } from 'lucide-react'
 import { scanFiles } from './lib/fs'
 import { parseCues, cueAt, cueIndexAt } from './lib/srt'
 
 const LS_KEY = 'udemy-local-progress'
 const LS_FONT = 'udemy-local-fontsize'
+const LS_THEME = 'udemy-local-theme'
 const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2]
+
+function ThemeToggle({ theme, setTheme, dark }) {
+  return (
+    <div className={'theme-toggle' + (dark ? ' on-dark' : '')}>
+      <button
+        className={theme === 'light' ? 'on' : ''}
+        onClick={() => setTheme('light')}
+        title="Giao diện sáng"
+      >
+        <Sun size={14} /> Sáng
+      </button>
+      <button
+        className={theme === 'dark' ? 'on' : ''}
+        onClick={() => setTheme('dark')}
+        title="Giao diện tối"
+      >
+        <Moon size={14} /> Tối
+      </button>
+    </div>
+  )
+}
 
 function loadProgress() {
   try {
@@ -70,6 +94,9 @@ export default function App() {
   const [fontSize, setFontSize] = useState(
     () => +localStorage.getItem(LS_FONT) || 24,
   )
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem(LS_THEME) || 'light',
+  )
 
   // Trạng thái trình phát (controls tự dựng để phụ đề hiển thị cả khi toàn màn hình).
   const [playing, setPlaying] = useState(false)
@@ -102,6 +129,11 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(LS_FONT, String(fontSize))
   }, [fontSize])
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem(LS_THEME, theme)
+  }, [theme])
 
   const course = courses[courseIdx]
   const flat = useMemo(
@@ -410,6 +442,7 @@ export default function App() {
             Cấu trúc: <code>Khoá học / NN - Chương / NN - Bài giảng.mp4</code>{' '}
             (kèm <code>.srt</code>)
           </p>
+          <ThemeToggle theme={theme} setTheme={setTheme} dark />
         </div>
       </div>
     )
@@ -683,13 +716,16 @@ export default function App() {
         <div className="side-head">
           <div className="side-title">
             <span>Nội dung khoá học</span>
-            <button
-              className="ic-btn sm dark"
-              onClick={() => setSidebarOpen(false)}
-              title="Ẩn"
-            >
-              <X size={18} />
-            </button>
+            <div className="side-title-actions">
+              <ThemeToggle theme={theme} setTheme={setTheme} />
+              <button
+                className="ic-btn sm dark"
+                onClick={() => setSidebarOpen(false)}
+                title="Ẩn"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
           <select
             className="course-select"
