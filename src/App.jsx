@@ -1,6 +1,30 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import {
+  Play,
+  Pause,
+  Rewind,
+  FastForward,
+  Volume2,
+  Volume1,
+  VolumeX,
+  Maximize,
+  Minimize,
+  Gauge,
+  Captions,
+  Type,
+  FileText,
+  Search,
+  ChevronDown,
+  Check,
+  GraduationCap,
+  PanelRight,
+  PanelRightOpen,
+  FolderInput,
+  CirclePlay,
+  X,
+} from 'lucide-react'
 import { scanFiles } from './lib/fs'
-import { parseCues, cueAt } from './lib/srt'
+import { parseCues, cueAt, cueIndexAt } from './lib/srt'
 
 const LS_KEY = 'udemy-local-progress'
 const LS_FONT = 'udemy-local-fontsize'
@@ -21,6 +45,12 @@ function fmt(s) {
   const m = Math.floor((s % 3600) / 60)
   const sec = String(s % 60).padStart(2, '0')
   return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`
+}
+
+// Phút làm tròn kiểu Udemy ("4min").
+function mins(s) {
+  if (!s || !isFinite(s)) return null
+  return Math.max(1, Math.round(s / 60)) + 'min'
 }
 
 export default function App() {
@@ -51,12 +81,15 @@ export default function App() {
   const [isFull, setIsFull] = useState(false)
   const [showCtrl, setShowCtrl] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [transcriptOpen, setTranscriptOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState({}) // chapterRaw -> true nếu gập
 
   const videoRef = useRef(null)
   const wrapRef = useRef(null)
   const inputRef = useRef(null)
   const saveRef = useRef(0)
   const hideRef = useRef(0)
+  const activeRowRef = useRef(null)
 
   useEffect(() => {
     const el = inputRef.current
@@ -137,6 +170,15 @@ export default function App() {
     }
   }, [activeLecture])
 
+  // Mở rộng chương chứa bài đang xem (giống Udemy).
+  useEffect(() => {
+    if (!activeLecture || !course) return
+    const ch = course.chapters.find((c) =>
+      c.lectures.some((l) => l.id === activeLecture.id),
+    )
+    if (ch) setCollapsed((c) => ({ ...c, [ch.raw]: false }))
+  }, [activeLecture, course])
+
   // Khi danh sách phụ đề đổi: đảm bảo lựa chọn còn hợp lệ, mặc định bật cái đầu.
   useEffect(() => {
     const has = (x) => x && labels.includes(x)
@@ -150,6 +192,15 @@ export default function App() {
     return tr ? cueAt(tr.cues, t) : ''
   }
 
+  // Track dùng cho transcript: ưu tiên phụ đề chính, nếu tắt thì lấy track đầu.
+  const transcriptTrack = useMemo(
+    () => tracks.find((t) => t.label === sub1) || tracks[0] || null,
+    [tracks, sub1],
+  )
+  const activeCue = transcriptTrack
+    ? cueIndexAt(transcriptTrack.cues, curTime)
+    : -1
+
   function onLoadedMeta() {
     const v = videoRef.current
     if (!v || !activeLecture) return
@@ -157,6 +208,12 @@ export default function App() {
     v.playbackRate = rate
     v.volume = volume
     v.muted = muted
+    // Lưu thời lượng để hiển thị "Xmin" trong danh sách bài.
+    if (v.duration && isFinite(v.duration))
+      persist((p) => ({
+        ...p,
+        [activeLecture.id]: { ...p[activeLecture.id], dur: v.duration },
+      }))
     const saved = progress[activeLecture.id]
     if (saved?.time && saved.time < v.duration - 5) v.currentTime = saved.time
   }
@@ -265,6 +322,13 @@ export default function App() {
     if (!playing) setShowCtrl(true)
   }, [playing])
 
+  // Auto-scroll transcript tới dòng đang phát.
+  useEffect(() => {
+    if (transcriptOpen && activeRowRef.current) {
+      activeRowRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }
+  }, [activeCue, transcriptOpen])
+
   // Phím tắt.
   useEffect(() => {
     function onKey(e) {
@@ -322,16 +386,24 @@ export default function App() {
   const pct = duration ? (curTime / duration) * 100 : 0
   // Phụ đề phóng to khi toàn màn hình để dễ đọc trên màn lớn.
   const subPx = Math.round(fontSize * (isFull ? 1.7 : 1))
+  const VolIcon = muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2
+
+  let globalNo = 0 // số thứ tự bài liên tục trong khoá (giống "18. ...")
 
   if (!courses.length) {
     return (
       <div className="landing">
         <div className="landing-card">
-          <div className="landing-logo">🎓</div>
+          <div className="landing-logo">
+            <GraduationCap size={52} strokeWidth={1.5} />
+          </div>
           <h1>Udemy Local</h1>
-          <p>Xem các khoá học đã tải về máy, ngay trong trình duyệt — kèm phụ đề song ngữ.</p>
+          <p>
+            Xem các khoá học đã tải về máy, ngay trong trình duyệt — kèm phụ đề
+            song ngữ &amp; transcript.
+          </p>
           <button className="btn" onClick={() => inputRef.current?.click()}>
-            Chọn folder khoá học…
+            <FolderInput size={18} /> Chọn folder khoá học…
           </button>
           <input ref={inputRef} type="file" multiple hidden onChange={onPick} />
           <p className="hint">
@@ -345,79 +417,6 @@ export default function App() {
 
   return (
     <div className={'app' + (sidebarOpen ? '' : ' collapsed')}>
-      <aside className="sidebar">
-        <div className="side-head">
-          <select
-            className="course-select"
-            value={courseIdx}
-            onChange={(e) => selectCourse(+e.target.value)}
-          >
-            {courses.map((c, i) => (
-              <option key={i} value={i}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <div className="search-wrap">
-            <span className="search-ic">🔎</span>
-            <input
-              className="search"
-              placeholder="Tìm bài giảng…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
-          <div className="progress-line">
-            <div className="prog-meta">
-              <div className="prog-bar">
-                <div
-                  className="prog-fill"
-                  style={{ width: (flat.length ? (watchedCount / flat.length) * 100 : 0) + '%' }}
-                />
-              </div>
-              <span>
-                Đã xem {watchedCount}/{flat.length}
-              </span>
-            </div>
-            <button className="link" onClick={() => inputRef.current?.click()}>
-              Đổi folder
-            </button>
-          </div>
-          <input ref={inputRef} type="file" multiple hidden onChange={onPick} />
-        </div>
-
-        <div className="tree">
-          {visibleChapters.map((ch) => (
-            <div key={ch.raw} className="chapter">
-              <div className="chapter-title">{ch.name}</div>
-              {ch.lectures.map((l) => {
-                const pr = progress[l.id]
-                return (
-                  <div
-                    key={l.id}
-                    className={
-                      'lecture' +
-                      (l.id === activeId ? ' active' : '') +
-                      (pr?.watched ? ' done' : '')
-                    }
-                    onClick={() => setActiveId(l.id)}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={!!pr?.watched}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => setWatched(l.id, e.target.checked)}
-                    />
-                    <span className="lec-title">{l.title}</span>
-                    {l.subs.length > 0 && <span className="cc">CC</span>}
-                  </div>
-                )
-              })}
-            </div>
-          ))}
-        </div>
-      </aside>
-
       <main className="player">
         {activeLecture ? (
           <>
@@ -430,7 +429,6 @@ export default function App() {
               }
               onMouseMove={wakeControls}
               onClick={(e) => {
-                // Click vào vùng video (không phải nút) -> play/pause
                 if (e.target === e.currentTarget || e.target.tagName === 'VIDEO')
                   togglePlay()
               }}
@@ -460,7 +458,12 @@ export default function App() {
                   className="subs"
                   style={{
                     fontSize: subPx + 'px',
-                    bottom: showCtrl || !playing ? '90px' : '36px',
+                    bottom: showCtrl || !playing ? '92px' : '36px',
+                    right: transcriptOpen && !isFull ? '380px' : undefined,
+                    width: transcriptOpen && !isFull ? 'auto' : '92%',
+                    left: transcriptOpen && !isFull ? '24px' : '50%',
+                    transform:
+                      transcriptOpen && !isFull ? 'none' : 'translateX(-50%)',
                   }}
                 >
                   {cur1 && <div className="sub-line primary">{cur1}</div>}
@@ -468,7 +471,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* Nút play lớn khi đang tạm dừng */}
               {!playing && (
                 <button
                   className="big-play"
@@ -478,8 +480,48 @@ export default function App() {
                   }}
                   aria-label="Phát"
                 >
-                  ▶
+                  <Play size={34} fill="currentColor" />
                 </button>
+              )}
+
+              {/* Panel transcript (overlay phải, hiển thị cả khi toàn màn hình) */}
+              {transcriptOpen && (
+                <div className="transcript" onClick={(e) => e.stopPropagation()}>
+                  <div className="transcript-head">
+                    <span>
+                      <FileText size={16} /> Transcript
+                      {transcriptTrack ? ` · ${transcriptTrack.label}` : ''}
+                    </span>
+                    <button
+                      className="ic-btn sm"
+                      onClick={() => setTranscriptOpen(false)}
+                      title="Đóng"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <div className="transcript-body">
+                    {!transcriptTrack || !transcriptTrack.cues.length ? (
+                      <div className="transcript-empty">
+                        Bài này chưa có phụ đề.
+                      </div>
+                    ) : (
+                      transcriptTrack.cues.map((c, i) => (
+                        <div
+                          key={i}
+                          ref={i === activeCue ? activeRowRef : null}
+                          className={
+                            'tr-line' + (i === activeCue ? ' active' : '')
+                          }
+                          onClick={() => seek(c.start)}
+                        >
+                          <span className="tr-time">{fmt(c.start)}</span>
+                          <span className="tr-text">{c.text}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               )}
 
               {/* Thanh điều khiển tự dựng */}
@@ -498,18 +540,18 @@ export default function App() {
                 />
                 <div className="ctrl-row">
                   <button className="ic-btn" onClick={togglePlay} title="Phát/Dừng (Space)">
-                    {playing ? '⏸' : '▶'}
+                    {playing ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
                   </button>
                   <button className="ic-btn" onClick={() => nudge(-5)} title="Lùi 5s (←)">
-                    ⏪
+                    <Rewind size={19} />
                   </button>
                   <button className="ic-btn" onClick={() => nudge(5)} title="Tới 5s (→)">
-                    ⏩
+                    <FastForward size={19} />
                   </button>
 
                   <div className="vol">
                     <button className="ic-btn" onClick={toggleMute} title="Tắt tiếng (M)">
-                      {muted || volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊'}
+                      <VolIcon size={19} />
                     </button>
                     <input
                       className="vol-range"
@@ -528,11 +570,10 @@ export default function App() {
 
                   <div className="spacer" />
 
-                  {/* Phụ đề chính */}
                   {tracks.length > 0 && (
                     <>
                       <label className="ctrl-sel" title="Phụ đề chính">
-                        <span className="sel-ic">CC</span>
+                        <Captions size={16} />
                         <select value={sub1} onChange={(e) => setSub1(e.target.value)}>
                           <option value="">Tắt</option>
                           {labels.map((l) => (
@@ -543,7 +584,7 @@ export default function App() {
                         </select>
                       </label>
                       <label className="ctrl-sel" title="Phụ đề song ngữ">
-                        <span className="sel-ic">文</span>
+                        <span className="sel-ic-text">文</span>
                         <select value={sub2} onChange={(e) => setSub2(e.target.value)}>
                           <option value="">Tắt</option>
                           {labels.map((l) => (
@@ -554,25 +595,26 @@ export default function App() {
                         </select>
                       </label>
                       <div className="font-ctrl" title="Cỡ chữ phụ đề">
+                        <Type size={14} />
                         <button
                           className="ic-btn sm"
                           onClick={() => setFontSize((s) => Math.max(12, s - 2))}
                         >
-                          A−
+                          −
                         </button>
                         <span className="font-val">{fontSize}</span>
                         <button
                           className="ic-btn sm"
                           onClick={() => setFontSize((s) => Math.min(64, s + 2))}
                         >
-                          A+
+                          +
                         </button>
                       </div>
                     </>
                   )}
 
                   <label className="ctrl-sel" title="Tốc độ phát">
-                    <span className="sel-ic">⚡</span>
+                    <Gauge size={16} />
                     <select value={rate} onChange={(e) => changeRate(+e.target.value)}>
                       {SPEEDS.map((s) => (
                         <option key={s} value={s}>
@@ -582,8 +624,16 @@ export default function App() {
                     </select>
                   </label>
 
+                  <button
+                    className={'ic-btn' + (transcriptOpen ? ' on' : '')}
+                    onClick={() => setTranscriptOpen((v) => !v)}
+                    title="Transcript"
+                  >
+                    <FileText size={19} />
+                  </button>
+
                   <button className="ic-btn" onClick={toggleFull} title="Toàn màn hình (F)">
-                    {isFull ? '🗗' : '⛶'}
+                    {isFull ? <Minimize size={19} /> : <Maximize size={19} />}
                   </button>
                 </div>
               </div>
@@ -591,11 +641,11 @@ export default function App() {
 
             <div className="bar">
               <button
-                className="btn-sm"
+                className="btn-sm icon"
                 onClick={() => setSidebarOpen((s) => !s)}
-                title="Ẩn/hiện danh sách bài"
+                title="Ẩn/hiện nội dung khoá học"
               >
-                ☰
+                {sidebarOpen ? <PanelRightOpen size={18} /> : <PanelRight size={18} />}
               </button>
               <button
                 className="btn-sm"
@@ -609,6 +659,13 @@ export default function App() {
               </h2>
               <div className="spacer" />
               <button
+                className={'btn-sm icon' + (transcriptOpen ? ' on' : '')}
+                onClick={() => setTranscriptOpen((v) => !v)}
+                title="Transcript"
+              >
+                <FileText size={17} /> Transcript
+              </button>
+              <button
                 className="btn-sm primary"
                 onClick={goNext}
                 disabled={activeIndex >= flat.length - 1}
@@ -621,6 +678,135 @@ export default function App() {
           <div className="empty">Chọn một bài giảng để xem</div>
         )}
       </main>
+
+      <aside className="sidebar">
+        <div className="side-head">
+          <div className="side-title">
+            <span>Nội dung khoá học</span>
+            <button
+              className="ic-btn sm dark"
+              onClick={() => setSidebarOpen(false)}
+              title="Ẩn"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <select
+            className="course-select"
+            value={courseIdx}
+            onChange={(e) => selectCourse(+e.target.value)}
+          >
+            {courses.map((c, i) => (
+              <option key={i} value={i}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <div className="search-wrap">
+            <Search size={15} className="search-ic" />
+            <input
+              className="search"
+              placeholder="Tìm bài giảng…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          <div className="progress-line">
+            <div className="prog-meta">
+              <div className="prog-bar">
+                <div
+                  className="prog-fill"
+                  style={{
+                    width:
+                      (flat.length ? (watchedCount / flat.length) * 100 : 0) +
+                      '%',
+                  }}
+                />
+              </div>
+              <span>
+                Hoàn thành {watchedCount}/{flat.length} bài
+              </span>
+            </div>
+            <button className="link" onClick={() => inputRef.current?.click()}>
+              <FolderInput size={14} /> Đổi
+            </button>
+          </div>
+          <input ref={inputRef} type="file" multiple hidden onChange={onPick} />
+        </div>
+
+        <div className="tree">
+          {visibleChapters.map((ch, ci) => {
+            const total = ch.lectures.length
+            const done = ch.lectures.filter((l) => progress[l.id]?.watched).length
+            const chDur = ch.lectures.reduce(
+              (a, l) => a + (progress[l.id]?.dur || 0),
+              0,
+            )
+            const isCol = !!collapsed[ch.raw] && !query.trim()
+            return (
+              <div key={ch.raw} className="chapter">
+                <button
+                  className="chapter-title"
+                  onClick={() =>
+                    setCollapsed((c) => ({ ...c, [ch.raw]: !c[ch.raw] }))
+                  }
+                >
+                  <div className="ch-info">
+                    <div className="ch-name">
+                      Phần {ci + 1}: {ch.name}
+                    </div>
+                    <div className="ch-sub">
+                      {done}/{total} | {chDur ? mins(chDur) : `${total} bài`}
+                    </div>
+                  </div>
+                  <ChevronDown
+                    size={18}
+                    className={'ch-chevron' + (isCol ? ' rot' : '')}
+                  />
+                </button>
+                {!isCol &&
+                  ch.lectures.map((l) => {
+                    globalNo += 1
+                    const pr = progress[l.id]
+                    const active = l.id === activeId
+                    return (
+                      <div
+                        key={l.id}
+                        className={
+                          'lecture' +
+                          (active ? ' active' : '') +
+                          (pr?.watched ? ' done' : '')
+                        }
+                        onClick={() => setActiveId(l.id)}
+                      >
+                        <button
+                          className={'lec-check' + (pr?.watched ? ' on' : '')}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setWatched(l.id, !pr?.watched)
+                          }}
+                          title={pr?.watched ? 'Đã xem' : 'Đánh dấu đã xem'}
+                        >
+                          {pr?.watched && <Check size={13} strokeWidth={3} />}
+                        </button>
+                        <div className="lec-body">
+                          <div className="lec-title">
+                            {globalNo}. {l.title}
+                          </div>
+                          <div className="lec-meta">
+                            <CirclePlay size={13} />
+                            {pr?.dur ? mins(pr.dur) : 'video'}
+                            {l.subs.length > 0 && <span className="cc">CC</span>}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+              </div>
+            )
+          })}
+        </div>
+      </aside>
     </div>
   )
 }

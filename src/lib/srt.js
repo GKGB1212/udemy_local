@@ -51,3 +51,11 @@ export function cueAt(cues, t) {
   for (const c of cues) if (t >= c.start && t < c.end) return c.text
   return ''
 }
+
+// Chỉ số cue đang phát (cho transcript: highlight + auto-scroll). -1 nếu không có.
+export function cueIndexAt(cues, t) {
+  if (!cues) return -1
+  for (let i = 0; i < cues.length; i++)
+    if (t >= cues[i].start && t < cues[i].end) return i
+  return -1
+}
