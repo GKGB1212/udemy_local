@@ -25,14 +25,49 @@ import {
   Sun,
   Moon,
   Download,
+  BookMarked,
 } from 'lucide-react'
 import DownloadPanel from './DownloadPanel'
+import VocabPanel from './VocabPanel'
 import { scanFiles } from './lib/fs'
 import { parseCues, cueAt, cueIndexAt } from './lib/srt'
 
 const LS_KEY = 'udemy-local-progress'
 const LS_FONT = 'udemy-local-fontsize'
 const LS_THEME = 'udemy-local-theme'
+const LS_VOCAB = 'udemy-local-vocab'
+
+function loadVocab() {
+  try {
+    return JSON.parse(localStorage.getItem(LS_VOCAB)) || {}
+  } catch {
+    return {}
+  }
+}
+
+// Tách câu phụ đề thành từ bấm được: hover -> dừng, click -> lưu.
+function WordSub({ text, onHover, onWord, isSaved }) {
+  const parts = text.split(/(\s+)/)
+  return parts.map((p, i) => {
+    if (p === '' || /^\s+$/.test(p)) return p
+    const core = p.replace(/^[^\p{L}'’-]+|[^\p{L}'’-]+$/gu, '')
+    if (!core) return p
+    const key = core.toLowerCase()
+    return (
+      <span
+        key={i}
+        className={'word' + (isSaved(key) ? ' saved' : '')}
+        onMouseEnter={onHover}
+        onClick={(e) => {
+          e.stopPropagation()
+          onWord(core, key)
+        }}
+      >
+        {p}
+      </span>
+    )
+  })
+}
 const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2]
 
 function ThemeToggle({ theme, setTheme, dark }) {
@@ -113,6 +148,9 @@ export default function App() {
   const [transcriptOpen, setTranscriptOpen] = useState(false)
   const [collapsed, setCollapsed] = useState({}) // chapterRaw -> true nếu gập
   const [showDownload, setShowDownload] = useState(false)
+  const [vocab, setVocab] = useState(loadVocab)
+  const [showVocab, setShowVocab] = useState(false)
+  const [toast, setToast] = useState('')
 
   const videoRef = useRef(null)
   const wrapRef = useRef(null)
@@ -120,6 +158,8 @@ export default function App() {
   const saveRef = useRef(0)
   const hideRef = useRef(0)
   const activeRowRef = useRef(null)
+  const pausedByHoverRef = useRef(false)
+  const toastRef = useRef(0)
 
   useEffect(() => {
     const el = inputRef.current
@@ -331,6 +371,67 @@ export default function App() {
     if (v) v.playbackRate = r
   }
 
+  // ---------- Lưu từ vựng từ phụ đề ----------
+  function flashToast(msg) {
+    setToast(msg)
+    clearTimeout(toastRef.current)
+    toastRef.current = setTimeout(() => setToast(''), 1600)
+  }
+
+  // Di chuột vào 1 từ -> tạm dừng để kịp đọc/lưu.
+  function pauseForHover() {
+    const v = videoRef.current
+    if (v && !v.paused) {
+      v.pause()
+      pausedByHoverRef.current = true
+    }
+  }
+  // Rời khỏi vùng phụ đề -> phát tiếp nếu chính ta đã tự dừng.
+  function resumeAfterHover() {
+    if (pausedByHoverRef.current) {
+      pausedByHoverRef.current = false
+      videoRef.current?.play()
+    }
+  }
+
+  function saveWord(word, key) {
+    const sentence = cur1
+    setVocab((prev) => {
+      const ex = prev[key]
+      const np = {
+        ...prev,
+        [key]: {
+          key,
+          word: ex?.word || word,
+          count: (ex?.count || 0) + 1,
+          sentence,
+          lecture: activeLecture?.title || '',
+          time: curTime,
+          addedAt: ex?.addedAt || Date.now(),
+          updatedAt: Date.now(),
+        },
+      }
+      localStorage.setItem(LS_VOCAB, JSON.stringify(np))
+      return np
+    })
+    flashToast(`Đã lưu “${word}”`)
+  }
+
+  function removeWord(key) {
+    setVocab((prev) => {
+      const np = { ...prev }
+      delete np[key]
+      localStorage.setItem(LS_VOCAB, JSON.stringify(np))
+      return np
+    })
+  }
+
+  function clearVocab() {
+    if (!confirm('Xoá toàn bộ từ đã lưu?')) return
+    setVocab({})
+    localStorage.removeItem(LS_VOCAB)
+  }
+
   const toggleFull = useCallback(() => {
     const el = wrapRef.current
     if (!el) return
@@ -418,6 +519,7 @@ export default function App() {
   }, [course, query])
 
   const watchedCount = flat.filter((l) => progress[l.id]?.watched).length
+  const vocabCount = Object.keys(vocab).length
   const pct = duration ? (curTime / duration) * 100 : 0
   // Phụ đề phóng to khi toàn màn hình để dễ đọc trên màn lớn.
   const subPx = Math.round(fontSize * (isFull ? 1.7 : 1))
@@ -446,6 +548,11 @@ export default function App() {
           >
             <Download size={18} /> Tải khoá học từ Udemy
           </button>
+          {vocabCount > 0 && (
+            <button className="btn ghost" onClick={() => setShowVocab(true)}>
+              <BookMarked size={18} /> Từ vựng đã lưu ({vocabCount})
+            </button>
+          )}
           <input ref={inputRef} type="file" multiple hidden onChange={onPick} />
           <p className="hint">
             Cấu trúc: <code>Khoá học / NN - Chương / NN - Bài giảng.mp4</code>{' '}
@@ -454,6 +561,14 @@ export default function App() {
           <ThemeToggle theme={theme} setTheme={setTheme} dark />
         </div>
         {showDownload && <DownloadPanel onClose={() => setShowDownload(false)} />}
+        {showVocab && (
+          <VocabPanel
+            vocab={vocab}
+            onRemove={removeWord}
+            onClear={clearVocab}
+            onClose={() => setShowVocab(false)}
+          />
+        )}
       </div>
     )
   }
@@ -509,10 +624,24 @@ export default function App() {
                       transcriptOpen && !isFull ? 'none' : 'translateX(-50%)',
                   }}
                 >
-                  {cur1 && <div className="sub-line primary">{cur1}</div>}
+                  {cur1 && (
+                    <div
+                      className="sub-line primary"
+                      onMouseLeave={resumeAfterHover}
+                    >
+                      <WordSub
+                        text={cur1}
+                        onHover={pauseForHover}
+                        onWord={saveWord}
+                        isSaved={(k) => !!vocab[k]}
+                      />
+                    </div>
+                  )}
                   {cur2 && <div className="sub-line secondary">{cur2}</div>}
                 </div>
               )}
+
+              {toast && <div className="word-toast">{toast}</div>}
 
               {!playing && (
                 <button
@@ -702,6 +831,14 @@ export default function App() {
               </h2>
               <div className="spacer" />
               <button
+                className="btn-sm icon"
+                onClick={() => setShowVocab(true)}
+                title="Từ vựng đã lưu"
+              >
+                <BookMarked size={17} /> Từ vựng
+                {vocabCount > 0 && <span className="badge">{vocabCount}</span>}
+              </button>
+              <button
                 className={'btn-sm icon' + (transcriptOpen ? ' on' : '')}
                 onClick={() => setTranscriptOpen((v) => !v)}
                 title="Transcript"
@@ -858,6 +995,14 @@ export default function App() {
       </aside>
 
       {showDownload && <DownloadPanel onClose={() => setShowDownload(false)} />}
+      {showVocab && (
+        <VocabPanel
+          vocab={vocab}
+          onRemove={removeWord}
+          onClear={clearVocab}
+          onClose={() => setShowVocab(false)}
+        />
+      )}
     </div>
   )
 }

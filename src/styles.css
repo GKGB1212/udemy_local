@@ -498,6 +498,50 @@ button {
 .sub-line.primary {
   color: #fff;
   font-weight: 600;
+  pointer-events: auto;
+}
+/* Từ bấm được trong phụ đề chính */
+.word {
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+.word:hover {
+  background: var(--accent);
+  color: #fff;
+}
+.word.saved {
+  color: #ffe08a;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 224, 138, 0.6);
+  text-underline-offset: 3px;
+}
+.word.saved:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Thông báo nhỏ khi lưu từ */
+.word-toast {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20, 21, 23, 0.92);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 99px;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 9;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  animation: toast-in 0.18s ease;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
 }
 .sub-line.secondary {
   color: #ffe08a;
@@ -1103,5 +1147,114 @@ button.link.span2 {
   color: var(--good);
 }
 .dl-log-row.err {
+  color: #ef4444;
+}
+
+/* ---------- Badge số trên nút ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ---------- Panel từ vựng ---------- */
+.vocab-modal {
+  max-width: 600px;
+}
+.vocab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 99px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  margin-left: 4px;
+}
+.vocab-toolbar {
+  display: flex;
+  gap: 10px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.search-wrap.grow {
+  flex: 1;
+}
+.vocab-empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 30px 10px;
+}
+.vocab-empty svg {
+  color: var(--accent);
+}
+.vocab-empty p {
+  margin: 8px 0;
+}
+.vocab-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.vocab-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.vocab-main {
+  flex: 1;
+  min-width: 0;
+}
+.vocab-word {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.vocab-times {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 0 6px;
+}
+.vocab-sentence {
+  font-size: 13px;
+  color: var(--text);
+  margin-top: 5px;
+  line-height: 1.5;
+}
+.vocab-sentence mark {
+  background: rgba(164, 53, 240, 0.25);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 700;
+}
+.vocab-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.link.danger {
   color: #ef4444;
 }
