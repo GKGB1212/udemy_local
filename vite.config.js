@@ -5,5 +5,9 @@ export default defineConfig({
   // Tên repo trên GitHub Pages: https://<user>.github.io/udemy_local/
   base: '/udemy_local/',
   plugins: [react()],
-  server: { open: true },
+  server: {
+    open: true,
+    // Khi dev (5173), chuyển /api sang companion server (8000).
+    proxy: { '/api': 'http://localhost:8000' },
+  },
 })

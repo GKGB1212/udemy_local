@@ -24,7 +24,9 @@ import {
   X,
   Sun,
   Moon,
+  Download,
 } from 'lucide-react'
+import DownloadPanel from './DownloadPanel'
 import { scanFiles } from './lib/fs'
 import { parseCues, cueAt, cueIndexAt } from './lib/srt'
 
@@ -110,6 +112,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [transcriptOpen, setTranscriptOpen] = useState(false)
   const [collapsed, setCollapsed] = useState({}) // chapterRaw -> true nếu gập
+  const [showDownload, setShowDownload] = useState(false)
 
   const videoRef = useRef(null)
   const wrapRef = useRef(null)
@@ -437,6 +440,12 @@ export default function App() {
           <button className="btn" onClick={() => inputRef.current?.click()}>
             <FolderInput size={18} /> Chọn folder khoá học…
           </button>
+          <button
+            className="btn ghost"
+            onClick={() => setShowDownload(true)}
+          >
+            <Download size={18} /> Tải khoá học từ Udemy
+          </button>
           <input ref={inputRef} type="file" multiple hidden onChange={onPick} />
           <p className="hint">
             Cấu trúc: <code>Khoá học / NN - Chương / NN - Bài giảng.mp4</code>{' '}
@@ -444,6 +453,7 @@ export default function App() {
           </p>
           <ThemeToggle theme={theme} setTheme={setTheme} dark />
         </div>
+        {showDownload && <DownloadPanel onClose={() => setShowDownload(false)} />}
       </div>
     )
   }
@@ -763,6 +773,9 @@ export default function App() {
                 Hoàn thành {watchedCount}/{flat.length} bài
               </span>
             </div>
+            <button className="link" onClick={() => setShowDownload(true)}>
+              <Download size={14} /> Tải thêm
+            </button>
             <button className="link" onClick={() => inputRef.current?.click()}>
               <FolderInput size={14} /> Đổi
             </button>
@@ -843,6 +856,8 @@ export default function App() {
           })}
         </div>
       </aside>
+
+      {showDownload && <DownloadPanel onClose={() => setShowDownload(false)} />}
     </div>
   )
 }

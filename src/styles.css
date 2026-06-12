@@ -821,3 +821,287 @@ button {
   justify-content: center;
   color: #9b9da3;
 }
+
+.btn.ghost {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: none;
+  color: #fff;
+}
+.btn.ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ---------- Modal Tải từ Udemy ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 50;
+}
+.modal {
+  width: 100%;
+  max-width: 640px;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-head h2 {
+  margin: 0;
+  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.modal-body {
+  padding: 18px;
+  overflow-y: auto;
+  flex: 1;
+}
+.modal-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+}
+.modal-foot .spacer {
+  flex: 1;
+}
+
+.muted {
+  color: var(--muted);
+}
+.small {
+  font-size: 12px;
+}
+.opt {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.form-grid .span2 {
+  grid-column: 1 / -1;
+}
+.form-grid input {
+  background: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius);
+  padding: 9px 11px;
+  font-size: 14px;
+  font-weight: 400;
+  outline: none;
+  width: 100%;
+}
+.form-grid input:focus {
+  border-color: var(--accent);
+}
+.form-grid .row {
+  display: flex;
+  gap: 8px;
+}
+.form-grid .row input {
+  flex: 1;
+}
+button.link.span2 {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.err-box {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(220, 38, 38, 0.12);
+  border: 1px solid rgba(220, 38, 38, 0.4);
+  color: #ef4444;
+  font-size: 13px;
+}
+
+.server-down {
+  text-align: center;
+  color: var(--muted);
+}
+.server-down svg {
+  color: var(--accent);
+}
+.server-down p {
+  margin: 8px 0;
+}
+.server-down pre,
+.modal pre {
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  overflow-x: auto;
+  color: var(--text);
+}
+.modal code {
+  background: var(--surface-2);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.course-list {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.course-row {
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.course-row:hover {
+  border-color: var(--accent);
+}
+
+.dl-curriculum {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.dl-course-title {
+  font-weight: 700;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.dl-chapter {
+  border-bottom: 1px solid var(--border);
+}
+.dl-ch-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: var(--surface-2);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+.dl-ch-head .muted {
+  margin-left: auto;
+}
+.dl-lec {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px 7px 30px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.dl-lec:hover {
+  background: var(--surface-2);
+}
+.dl-lec.off {
+  color: var(--muted);
+  cursor: default;
+}
+.dl-lec .cc {
+  margin-left: auto;
+}
+.dl-ch-head input,
+.dl-lec input {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+}
+
+.prog-bar.big {
+  height: 10px;
+  margin: 12px 0;
+}
+.dl-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.dl-status.ok {
+  color: var(--good);
+}
+.dl-status.err {
+  color: #ef4444;
+}
+.spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.dl-log {
+  margin-top: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dl-log-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 6px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+.dl-log-row span:first-of-type {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dl-log-row.ok svg {
+  color: var(--good);
+}
+.dl-log-row.err {
+  color: #ef4444;
+}
