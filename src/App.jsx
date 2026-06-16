@@ -26,6 +26,11 @@ import {
   Moon,
   Download,
   BookMarked,
+  Paperclip,
+  FileAudio,
+  File as FileIcon,
+  ExternalLink,
+  Copy,
 } from 'lucide-react'
 import DownloadPanel from './DownloadPanel'
 import VocabPanel from './VocabPanel'
@@ -114,14 +119,104 @@ function mins(s) {
   return Math.max(1, Math.round(s / 60)) + 'min'
 }
 
+// Danh sách tài liệu đính kèm: mở để xem hoặc tải xuống (dùng object URL).
+function ResourceList({ items }) {
+  if (!items.length)
+    return <div className="doc-empty">Không có tài liệu đính kèm.</div>
+  return (
+    <div className="res-list">
+      {items.map((r, i) => (
+        <div key={i} className="res-item">
+          <Paperclip size={16} />
+          <span className="res-name" title={r.name}>
+            {r.name}
+          </span>
+          <a className="res-act" href={r.url} target="_blank" rel="noreferrer" title="Mở">
+            <ExternalLink size={15} />
+          </a>
+          <a className="res-act" href={r.url} download={r.name} title="Tải xuống">
+            <Download size={15} />
+          </a>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Khu hiển thị bài giảng KHÔNG phải video: bài viết, audio, file, hoặc chỉ tài liệu.
+function DocStage({ lecture, mediaUrl, articleHtml, resources }) {
+  const t = lecture.type
+  return (
+    <div className="doc-stage">
+      <div className="doc-card">
+        {t === 'article' && (
+          <iframe
+            className="article-frame"
+            title={lecture.title}
+            srcDoc={articleHtml}
+          />
+        )}
+        {t === 'audio' && (
+          <div className="doc-media">
+            <FileAudio size={46} strokeWidth={1.3} />
+            <h3>{lecture.title}</h3>
+            <audio controls src={mediaUrl || undefined} className="doc-audio" />
+          </div>
+        )}
+        {t === 'file' && (
+          <div className="doc-media">
+            <FileIcon size={46} strokeWidth={1.3} />
+            <h3>{lecture.title}</h3>
+            <p className="muted">
+              Loại tài liệu này không xem trực tiếp trong trình phát.
+            </p>
+            <div className="doc-actions">
+              <a
+                className="btn-sm"
+                href={mediaUrl || undefined}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <ExternalLink size={16} /> Mở
+              </a>
+              <a
+                className="btn-sm primary"
+                href={mediaUrl || undefined}
+                download={lecture.raw}
+              >
+                <Download size={16} /> Tải xuống
+              </a>
+            </div>
+          </div>
+        )}
+        {t === 'resources' && (
+          <div className="doc-media">
+            <Paperclip size={46} strokeWidth={1.3} />
+            <h3>{lecture.title}</h3>
+            <p className="muted">Bài này chỉ có tài liệu đính kèm.</p>
+          </div>
+        )}
+      </div>
+      <div className="doc-resources">
+        <div className="doc-res-head">
+          <Paperclip size={15} /> Tài liệu đính kèm
+        </div>
+        <ResourceList items={resources} />
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [courses, setCourses] = useState([])
   const [courseIdx, setCourseIdx] = useState(0)
   const [activeId, setActiveId] = useState(null)
   const [query, setQuery] = useState('')
   const [progress, setProgress] = useState(loadProgress)
-  const [videoUrl, setVideoUrl] = useState(null)
+  const [videoUrl, setVideoUrl] = useState(null) // object URL của asset chính
   const [tracks, setTracks] = useState([]) // [{ label, cues }]
+  const [articleHtml, setArticleHtml] = useState('') // nội dung bài viết (.html)
+  const [resourceUrls, setResourceUrls] = useState([]) // [{ name, url }]
 
   // Phụ đề: chọn theo nhãn ngôn ngữ để giữ nguyên khi chuyển bài.
   const [sub1, setSub1] = useState('') // nhãn phụ đề chính ('' = tắt)
@@ -146,6 +241,8 @@ export default function App() {
   const [showCtrl, setShowCtrl] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [transcriptOpen, setTranscriptOpen] = useState(false)
+  const [transcriptCopied, setTranscriptCopied] = useState(false)
+  const [resourcesOpen, setResourcesOpen] = useState(false)
   const [collapsed, setCollapsed] = useState({}) // chapterRaw -> true nếu gập
   const [showDownload, setShowDownload] = useState(false)
   const [vocab, setVocab] = useState(loadVocab)
@@ -203,7 +300,7 @@ export default function App() {
     if (!files || !files.length) return
     const data = scanFiles(files)
     if (!data.length) {
-      alert('Không tìm thấy video trong folder. Kiểm tra lại cấu trúc thư mục.')
+      alert('Không tìm thấy bài giảng trong folder. Kiểm tra lại cấu trúc thư mục.')
       return
     }
     setCourses(data)
@@ -217,31 +314,50 @@ export default function App() {
     setActiveId(courses[i]?.chapters[0]?.lectures[0]?.id || null)
   }
 
-  // Nạp video + parse phụ đề khi đổi bài.
+  // Nạp asset chính (video/audio/file/bài viết) + phụ đề + tài liệu khi đổi bài.
   useEffect(() => {
-    let url = null
+    const urls = [] // object URL cần thu hồi khi rời bài
     let cancelled = false
     async function load() {
       setCur1('')
       setCur2('')
+      setArticleHtml('')
+      setResourcesOpen(false)
       if (!activeLecture) {
         setVideoUrl(null)
         setTracks([])
+        setResourceUrls([])
         return
       }
-      url = URL.createObjectURL(activeLecture.file)
+      // Tạo object URL trước (đồng bộ) để cleanup luôn thu hồi được.
+      const mediaUrl = activeLecture.file
+        ? URL.createObjectURL(activeLecture.file)
+        : null
+      if (mediaUrl) urls.push(mediaUrl)
+      const rs = (activeLecture.resources || []).map((r) => {
+        const u = URL.createObjectURL(r.file)
+        urls.push(u)
+        return { name: r.name, url: u }
+      })
+      setVideoUrl(mediaUrl)
+      setResourceUrls(rs)
+
       const tr = []
       for (const s of activeLecture.subs) {
         tr.push({ label: s.label, cues: parseCues(await s.file.text()) })
       }
+      let html = ''
+      if (activeLecture.type === 'article' && activeLecture.file) {
+        html = await activeLecture.file.text()
+      }
       if (cancelled) return
-      setVideoUrl(url)
       setTracks(tr)
+      setArticleHtml(html)
     }
     load()
     return () => {
       cancelled = true
-      if (url) URL.revokeObjectURL(url)
+      urls.forEach((u) => URL.revokeObjectURL(u))
     }
   }, [activeLecture])
 
@@ -275,6 +391,25 @@ export default function App() {
   const activeCue = transcriptTrack
     ? cueIndexAt(transcriptTrack.cues, curTime)
     : -1
+
+  // Copy toàn bộ transcript (chỉ lấy phần text) vào clipboard.
+  const copyTranscript = useCallback(async () => {
+    if (!transcriptTrack || !transcriptTrack.cues.length) return
+    const text = transcriptTrack.cues.map((c) => c.text).join('\n')
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      // Fallback nếu clipboard API không khả dụng.
+      const ta = document.createElement('textarea')
+      ta.value = text
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
+    setTranscriptCopied(true)
+    setTimeout(() => setTranscriptCopied(false), 1500)
+  }, [transcriptTrack])
 
   function onLoadedMeta() {
     const v = videoRef.current
@@ -578,6 +713,7 @@ export default function App() {
       <main className="player">
         {activeLecture ? (
           <>
+            {activeLecture.type === 'video' ? (
             <div
               ref={wrapRef}
               className={
@@ -664,13 +800,27 @@ export default function App() {
                       <FileText size={16} /> Transcript
                       {transcriptTrack ? ` · ${transcriptTrack.label}` : ''}
                     </span>
-                    <button
-                      className="ic-btn sm"
-                      onClick={() => setTranscriptOpen(false)}
-                      title="Đóng"
-                    >
-                      <X size={16} />
-                    </button>
+                    <div className="transcript-head-actions">
+                      <button
+                        className="ic-btn sm"
+                        onClick={copyTranscript}
+                        disabled={!transcriptTrack || !transcriptTrack.cues.length}
+                        title="Copy toàn bộ transcript"
+                      >
+                        {transcriptCopied ? (
+                          <Check size={16} />
+                        ) : (
+                          <Copy size={16} />
+                        )}
+                      </button>
+                      <button
+                        className="ic-btn sm"
+                        onClick={() => setTranscriptOpen(false)}
+                        title="Đóng"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
                   </div>
                   <div className="transcript-body">
                     {!transcriptTrack || !transcriptTrack.cues.length ? (
@@ -810,6 +960,14 @@ export default function App() {
                 </div>
               </div>
             </div>
+            ) : (
+              <DocStage
+                lecture={activeLecture}
+                mediaUrl={videoUrl}
+                articleHtml={articleHtml}
+                resources={resourceUrls}
+              />
+            )}
 
             <div className="bar">
               <button
@@ -838,6 +996,16 @@ export default function App() {
                 <BookMarked size={17} /> Từ vựng
                 {vocabCount > 0 && <span className="badge">{vocabCount}</span>}
               </button>
+              {activeLecture.type === 'video' && resourceUrls.length > 0 && (
+                <button
+                  className={'btn-sm icon' + (resourcesOpen ? ' on' : '')}
+                  onClick={() => setResourcesOpen((v) => !v)}
+                  title="Tài liệu đính kèm"
+                >
+                  <Paperclip size={17} /> Tài liệu
+                  <span className="badge">{resourceUrls.length}</span>
+                </button>
+              )}
               <button
                 className={'btn-sm icon' + (transcriptOpen ? ' on' : '')}
                 onClick={() => setTranscriptOpen((v) => !v)}
@@ -853,6 +1021,24 @@ export default function App() {
                 Bài tiếp →
               </button>
             </div>
+
+            {activeLecture.type === 'video' &&
+              resourcesOpen &&
+              resourceUrls.length > 0 && (
+                <div className="res-strip">
+                  <div className="doc-res-head">
+                    <Paperclip size={15} /> Tài liệu đính kèm
+                    <button
+                      className="ic-btn sm"
+                      onClick={() => setResourcesOpen(false)}
+                      title="Đóng"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <ResourceList items={resourceUrls} />
+                </div>
+              )}
           </>
         ) : (
           <div className="empty">Chọn một bài giảng để xem</div>
@@ -980,9 +1166,30 @@ export default function App() {
                             {globalNo}. {l.title}
                           </div>
                           <div className="lec-meta">
-                            <CirclePlay size={13} />
-                            {pr?.dur ? mins(pr.dur) : 'video'}
+                            {l.type === 'article' ? (
+                              <>
+                                <FileText size={13} /> Bài viết
+                              </>
+                            ) : l.type === 'audio' ? (
+                              <>
+                                <FileAudio size={13} /> Audio
+                              </>
+                            ) : l.type === 'file' || l.type === 'resources' ? (
+                              <>
+                                <FileIcon size={13} /> Tài liệu
+                              </>
+                            ) : (
+                              <>
+                                <CirclePlay size={13} />
+                                {pr?.dur ? mins(pr.dur) : 'video'}
+                              </>
+                            )}
                             {l.subs.length > 0 && <span className="cc">CC</span>}
+                            {l.resources.length > 0 && (
+                              <span className="res-count" title="Tài liệu đính kèm">
+                                <Paperclip size={11} /> {l.resources.length}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>

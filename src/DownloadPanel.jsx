@@ -7,10 +7,23 @@ import {
   XCircle,
   Loader2,
   ServerCrash,
+  Video,
+  FileText,
+  FileAudio,
+  File,
+  Paperclip,
 } from 'lucide-react'
 import { api } from './lib/api'
 
 const LS = 'udemy-local-dl'
+
+// Biểu tượng + nhãn theo loại bài giảng trả về từ server.
+function TypeIcon({ type, size = 14 }) {
+  if (type === 'Video') return <Video size={size} />
+  if (type === 'Article') return <FileText size={size} />
+  if (type === 'Audio') return <FileAudio size={size} />
+  return <File size={size} />
+}
 
 function loadCreds() {
   try {
@@ -33,6 +46,13 @@ export default function DownloadPanel({ onClose }) {
   const [curriculum, setCurriculum] = useState(null) // {title, chapters}
   const [picked, setPicked] = useState(() => new Set()) // lecture ids
   const [task, setTask] = useState(null) // snapshot tiến độ
+  // Loại nội dung sẽ tải. Tắt video + bật mỗi tài liệu = chỉ bổ sung resource.
+  const [kinds, setKinds] = useState({
+    video: true,
+    articles: true,
+    resources: true,
+    subtitles: true,
+  })
   const pollRef = useRef(0)
 
   useEffect(() => {
@@ -107,6 +127,10 @@ export default function DownloadPanel({ onClose }) {
         ...creds(),
         course,
         lecture_ids: [...picked],
+        download_video: kinds.video,
+        download_articles: kinds.articles,
+        download_resources: kinds.resources,
+        download_subtitles: kinds.subtitles,
       })
       pollRef.current = setInterval(async () => {
         try {
@@ -224,6 +248,26 @@ export default function DownloadPanel({ onClose }) {
               {curriculum && !task && (
                 <div className="dl-curriculum">
                   <div className="dl-course-title">{curriculum.title}</div>
+                  <div className="dl-kinds">
+                    <span className="muted small">Tải:</span>
+                    {[
+                      ['video', 'Video'],
+                      ['articles', 'Bài viết'],
+                      ['resources', 'Tài liệu'],
+                      ['subtitles', 'Phụ đề'],
+                    ].map(([k, label]) => (
+                      <label key={k} className="dl-kind">
+                        <input
+                          type="checkbox"
+                          checked={kinds[k]}
+                          onChange={() =>
+                            setKinds((s) => ({ ...s, [k]: !s[k] }))
+                          }
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
                   {curriculum.chapters.map((ch) => {
                     const dlAble = ch.lectures.filter((l) => l.downloadable)
                     const allOn =
@@ -256,11 +300,19 @@ export default function DownloadPanel({ onClose }) {
                               disabled={!l.downloadable}
                               onChange={() => toggleLecture(l.id)}
                             />
-                            <span>{l.title}</span>
-                            {!l.downloadable && (
-                              <span className="muted small">không bật tải</span>
-                            )}
-                            {l.captions > 0 && <span className="cc">CC</span>}
+                            <TypeIcon type={l.type} />
+                            <span className="dl-lec-title">{l.title}</span>
+                            <span className="dl-lec-tags">
+                              {l.resources > 0 && (
+                                <span className="res-tag" title="Tài liệu đính kèm">
+                                  <Paperclip size={11} /> {l.resources}
+                                </span>
+                              )}
+                              {l.captions > 0 && <span className="cc">CC</span>}
+                              {!l.downloadable && (
+                                <span className="muted small">không bật tải</span>
+                              )}
+                            </span>
                           </label>
                         ))}
                       </div>

@@ -579,6 +579,15 @@ button {
   align-items: center;
   gap: 7px;
 }
+.transcript-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.transcript-head-actions .ic-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
 .transcript-body {
   overflow-y: auto;
   padding: 6px 6px 24px;
@@ -1087,7 +1096,7 @@ button.link.span2 {
   cursor: default;
 }
 .dl-lec .cc {
-  margin-left: auto;
+  margin-left: 0;
 }
 .dl-ch-head input,
 .dl-lec input {
@@ -1257,4 +1266,186 @@ button.link.span2 {
 }
 .link.danger {
   color: #ef4444;
+}
+
+/* ---------- Bài giảng không phải video (bài viết / audio / file / tài liệu) ---------- */
+.doc-stage {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+.doc-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.article-frame {
+  width: 100%;
+  height: 100%;
+  min-height: 60vh;
+  border: 0;
+  background: #fff;
+}
+.doc-media {
+  margin: auto;
+  padding: 40px;
+  text-align: center;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 560px;
+}
+.doc-media h3 {
+  margin: 0;
+  font-size: 18px;
+}
+.doc-media .muted {
+  color: var(--muted);
+  font-size: 14px;
+}
+.doc-audio {
+  width: 100%;
+  max-width: 460px;
+}
+.doc-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+.doc-actions .btn-sm {
+  text-decoration: none;
+}
+
+/* ---------- Tài liệu đính kèm ---------- */
+.doc-resources {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.res-strip {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 10px 16px 14px;
+  max-height: 38vh;
+  overflow-y: auto;
+}
+.doc-res-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.doc-res-head .ic-btn {
+  margin-left: auto;
+}
+.doc-empty {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 4px 2px;
+}
+.res-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.res-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+.res-item:hover {
+  background: var(--surface);
+}
+.res-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.res-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.res-act:hover {
+  background: var(--accent);
+  color: #fff;
+}
+/* Đếm tài liệu trong danh sách bài (sidebar) */
+.res-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ---------- Picker tải: bộ lọc loại + nhãn loại bài ---------- */
+.dl-kinds {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 9px 12px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.dl-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.dl-kind input {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+}
+.dl-lec .dl-lec-title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dl-lec-tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.res-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--muted);
 }

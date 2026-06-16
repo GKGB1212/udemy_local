@@ -143,9 +143,10 @@ def fetch_curriculum(s, base, course_id):
     url = (
         f"{base}/api-2.0/courses/{course_id}/subscriber-curriculum-items/"
         "?page_size=200"
-        "&fields[lecture]=title,object_index,asset,id"
+        "&fields[lecture]=title,object_index,asset,supplementary_assets,id"
         "&fields[chapter]=title,object_index"
-        "&fields[asset]=asset_type,title,download_urls,filename,captions,length"
+        "&fields[asset]=asset_type,title,download_urls,filename,captions,length,"
+        "body,external_url,id"
         "&fields[caption]=file_name,locale_id,url,source,title,video_label"
     )
     while url:
@@ -189,6 +190,80 @@ def pick_video_url(download_urls, max_quality=None):
         capped = [v for v in videos if quality(v) <= max_quality]
         candidates = capped or videos
     return max(candidates, key=quality).get("file")
+
+
+def first_download_url(download_urls):
+    """Link tải đầu tiên của một asset không phải video (file/tài liệu).
+    Trả (url, key) hoặc (None, None)."""
+    if not download_urls:
+        return None, None
+    keys = list(download_urls.keys())
+    ordered = [k for k in keys if k != "Video"] + [k for k in keys if k == "Video"]
+    for key in ordered:
+        for item in download_urls.get(key) or []:
+            f = item.get("file")
+            if f:
+                return f, key
+    return None, None
+
+
+def ext_from(*candidates):
+    """Đoán đuôi file từ filename hoặc URL. '' nếu không thấy."""
+    for cand in candidates:
+        if not cand:
+            continue
+        m = re.search(r"\.([A-Za-z0-9]{1,8})(?:\?|#|$)", cand)
+        if m:
+            return "." + m.group(1).lower()
+    return ""
+
+
+def save_article(dest, title, body):
+    """Lưu bài giảng dạng chữ (Article) -> file .html. Trả 'skip'/'ok'."""
+    if os.path.exists(dest) and os.path.getsize(dest) > 0:
+        return "skip"
+    html = (
+        "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+        f"<title>{title}</title></head><body>\n{body or ''}\n</body></html>"
+    )
+    tmp = dest + ".part"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(html)
+    os.rename(tmp, dest)
+    return "ok"
+
+
+def ensure_lecture_detail(s, base, course_id, lec):
+    """Curriculum đôi khi thiếu `body` (Article) hoặc `download_urls` của tài liệu
+    đính kèm. Khi thiếu, lấy bổ sung từ trang chi tiết bài giảng."""
+    lid = lec.get("id")
+    if not lid:
+        return lec
+    asset = lec.get("asset") or {}
+    need = asset.get("asset_type") == "Article" and not asset.get("body")
+    if not need:
+        for sup in lec.get("supplementary_assets") or []:
+            if not sup.get("download_urls"):
+                need = True
+                break
+    if not need:
+        return lec
+    try:
+        r = s.get(
+            f"{base}/api-2.0/courses/{course_id}/lectures/{lid}/"
+            "?fields[lecture]=asset,supplementary_assets"
+            "&fields[asset]=asset_type,title,filename,body,download_urls,"
+            "external_url,captions,id"
+        )
+        if r.ok:
+            d = r.json()
+            if d.get("asset"):
+                lec["asset"] = d["asset"]
+            if d.get("supplementary_assets"):
+                lec["supplementary_assets"] = d["supplementary_assets"]
+    except Exception:
+        pass
+    return lec
 
 
 def lang_wanted(locale, langs):
@@ -304,7 +379,8 @@ class Task:
             }
 
 
-def run_download(task, org, token, course, lecture_ids, langs, max_quality, parallel):
+def run_download(task, org, token, course, lecture_ids, langs, max_quality, parallel,
+                 dl_video, dl_articles, dl_resources, dl_subtitles):
     try:
         s, base = make_client(org, token)
         course_id, course_title = resolve_course(s, base, course)
@@ -322,22 +398,53 @@ def run_download(task, org, token, course, lecture_ids, langs, max_quality, para
             for li, lec in enumerate(ch["lectures"], 1):
                 if wanted is not None and str(lec.get("id")) not in wanted:
                     continue
+                lec = ensure_lecture_detail(s, base, course_id, lec)
                 asset = lec.get("asset") or {}
-                url = pick_video_url(asset.get("download_urls"), max_quality)
-                if not url:
-                    continue
-                file_label = f"{li:02d} - {sanitize(lec.get('title', ''))}"
+                atype = asset.get("asset_type")
+                title = lec.get("title", "")
+                file_label = f"{li:02d} - {sanitize(title)}"
                 base_path = os.path.join(ch_dir, file_label)
-                jobs.append(
-                    {
-                        "url": url,
-                        "dest": base_path + ".mp4",
-                        "base": base_path,
-                        "captions": asset.get("captions"),
-                        "name": f"{ch_name}/{file_label}",
-                        "dir": ch_dir,
-                    }
-                )
+
+                # --- Asset chính của bài giảng ---
+                if atype == "Video" and dl_video:
+                    url = pick_video_url(asset.get("download_urls"), max_quality)
+                    if url:
+                        jobs.append({
+                            "type": "video", "url": url, "dest": base_path + ".mp4",
+                            "base": base_path, "captions": asset.get("captions"),
+                            "name": f"{ch_name}/{file_label}", "dir": ch_dir,
+                        })
+                elif atype == "Article" and dl_articles:
+                    jobs.append({
+                        "type": "article", "dest": base_path + ".html",
+                        "title": title, "body": asset.get("body"),
+                        "name": f"{ch_name}/{file_label}", "dir": ch_dir,
+                    })
+                elif atype in ("Audio", "E-Book", "File", "Presentation") and dl_resources:
+                    url, _ = first_download_url(asset.get("download_urls"))
+                    if url:
+                        ext = ext_from(asset.get("filename"), url) or ".bin"
+                        jobs.append({
+                            "type": "file", "url": url, "dest": base_path + ext,
+                            "name": f"{ch_name}/{file_label}", "dir": ch_dir,
+                        })
+
+                # --- Tài liệu đính kèm (supplementary resources) ---
+                if dl_resources:
+                    for ri, sup in enumerate(lec.get("supplementary_assets") or [], 1):
+                        url, _ = first_download_url(sup.get("download_urls"))
+                        if not url:
+                            continue
+                        rname = sup.get("filename") or sup.get("title") or f"resource{ri}"
+                        safe = sanitize(rname)
+                        if not os.path.splitext(safe)[1]:
+                            safe += ext_from(sup.get("filename"), url) or ".bin"
+                        res_label = f"{li:02d}.{ri} - {safe}"
+                        jobs.append({
+                            "type": "resource", "url": url,
+                            "dest": os.path.join(ch_dir, res_label),
+                            "name": f"{ch_name}/{res_label}", "dir": ch_dir,
+                        })
 
         with task.lock:
             task.total = len(jobs)
@@ -345,7 +452,7 @@ def run_download(task, org, token, course, lecture_ids, langs, max_quality, para
         if not jobs:
             with task.lock:
                 task.finished = True
-                task.error = "Không có bài nào tải được (chưa bật download / DRM)."
+                task.error = "Không có mục nào tải được (chưa bật download / DRM)."
             return
 
         def one(job):
@@ -354,11 +461,19 @@ def run_download(task, org, token, course, lecture_ids, langs, max_quality, para
             local.cookies = s.cookies
             os.makedirs(job["dir"], exist_ok=True)
             try:
-                status = download_file(local, job["url"], job["dest"])
-                subs = download_captions(local, job["captions"], job["base"], langs)
-                label = "đã có" if status == "skip" else "xong"
-                if subs:
-                    label += f" +{subs} phụ đề"
+                if job["type"] == "article":
+                    status = save_article(job["dest"], job["title"], job["body"])
+                    label = "đã có" if status == "skip" else "bài viết"
+                elif job["type"] == "video":
+                    status = download_file(local, job["url"], job["dest"])
+                    label = "đã có" if status == "skip" else "xong"
+                    if dl_subtitles:
+                        subs = download_captions(local, job["captions"], job["base"], langs)
+                        if subs:
+                            label += f" +{subs} phụ đề"
+                else:  # file / resource
+                    status = download_file(local, job["url"], job["dest"])
+                    label = "đã có" if status == "skip" else "tài liệu"
                 return ("ok", job["name"], label)
             except Exception as e:
                 return ("err", job["name"], str(e))
@@ -410,6 +525,10 @@ class DownloadReq(CourseReq):
     langs: list = ["en", "vi"]
     max_quality: int | None = None
     parallel: int = 4
+    download_video: bool = True
+    download_articles: bool = True
+    download_resources: bool = True
+    download_subtitles: bool = True
 
 
 @app.get("/api/health")
@@ -447,12 +566,25 @@ def curriculum(req: CourseReq):
         lecs = []
         for lec in ch["lectures"]:
             asset = lec.get("asset") or {}
-            url = pick_video_url(asset.get("download_urls"))
+            atype = asset.get("asset_type")
+            if atype == "Video":
+                has_main = bool(pick_video_url(asset.get("download_urls")))
+            elif atype == "Article":
+                # body có thể chưa có trong listing; coi như tải được, lấy detail sau.
+                has_main = True
+            elif atype:
+                has_main = bool(first_download_url(asset.get("download_urls"))[0])
+            else:
+                has_main = False
+            resources = len(lec.get("supplementary_assets") or [])
             lecs.append(
                 {
                     "id": lec.get("id"),
                     "title": lec.get("title", ""),
-                    "downloadable": bool(url),
+                    "type": atype or "?",
+                    "has_main": has_main,
+                    "resources": resources,
+                    "downloadable": has_main or resources > 0,
                     "captions": len(asset.get("captions") or []),
                 }
             )
@@ -476,6 +608,10 @@ def start_download(req: DownloadReq):
             req.langs,
             req.max_quality,
             req.parallel,
+            req.download_video,
+            req.download_articles,
+            req.download_resources,
+            req.download_subtitles,
         ),
         daemon=True,
     ).start()
